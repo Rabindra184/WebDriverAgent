@@ -172,6 +172,17 @@ static bool fb_isLocked;
   [self fb_dispatchSynthesizedEventWithPath:path];
   return YES;
 }
+
+- (BOOL)fb_synthTouchAndHold:(CGFloat)x
+                           y:(CGFloat)y
+                       delay:(CGFloat)delay
+{
+  XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:CGPointMake(x, y)
+                                                                      offset:0];
+  [path pressDownAtOffset:delay];
+  [self fb_dispatchSynthesizedEventWithPath:path];
+  return YES;
+}
 #endif
 
 - (BOOL)fb_goToHomescreenWithError:(NSError **)error

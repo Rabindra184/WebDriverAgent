@@ -179,6 +179,19 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
                    x2:(CGFloat)x2
                    y2:(CGFloat)y2
                 delay:(CGFloat)delay;
+
+/**
+ Synthesizes a single-finger long press at the given screen coordinates.
+ The event is dispatched without waiting for its completion.
+
+ @param x The X coordinate in screen points
+ @param y The Y coordinate in screen points
+ @param delay How long the finger is held down in float seconds
+ @return YES once the event has been dispatched
+ */
+- (BOOL)fb_synthTouchAndHold:(CGFloat)x
+                           y:(CGFloat)y
+                       delay:(CGFloat)delay;
 #endif
 
 /**
