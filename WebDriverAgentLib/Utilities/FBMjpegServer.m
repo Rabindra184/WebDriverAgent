@@ -28,6 +28,12 @@ static const NSTimeInterval FRAME_TIMEOUT = 1.;
 static const NSUInteger MAX_PENDING_FRAMES_PER_CLIENT = 4;
 static const NSTimeInterval FAILURE_BACKOFF_MIN = 1.0;
 static const NSTimeInterval FAILURE_BACKOFF_MAX = 10.0;
+// An unchanged screen is not re-sent on every tick to save bandwidth, but it is still
+// re-sent at least this often so clients never get stuck on an outdated frame.
+static const NSTimeInterval UNCHANGED_FRAME_RESEND_INTERVAL = 0.5;
+// MJPEG viewers (browsers in particular) tend to only render a frame once the next one
+// starts arriving, so a new client gets this many frames even if the screen is static.
+static const NSUInteger FRAMES_FORCED_FOR_NEW_CLIENT = 2;
 
 static NSString *const SERVER_NAME = @"WDA MJPEG Server";
 static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
@@ -50,6 +56,11 @@ static NSUInteger FBNormalizedMjpegFramerate(NSUInteger framerate)
 @property (nonatomic, assign) NSUInteger droppedFramesCount;
 // Frames submitted but not sent yet, per client. Guarded by @synchronized (self.listeningClients).
 @property (nonatomic, readonly) NSMapTable<id, NSNumber *> *pendingFrameCounts;
+// Unscaled screenshot behind the last broadcasted frame and when it was sent
+@property (atomic, strong, nullable) NSData *lastSentScreenshotData;
+@property (atomic, assign) uint64_t lastFrameSentTimestamp;
+// Frames to broadcast regardless of screen changes. Guarded by @synchronized (self.listeningClients).
+@property (nonatomic, assign) NSUInteger forcedFramesCount;
 
 @end
 
@@ -105,10 +116,15 @@ static NSUInteger FBNormalizedMjpegFramerate(NSUInteger framerate)
   NSUInteger framerate = FBNormalizedMjpegFramerate(FBConfiguration.sharedInstance.mjpegServerFramerate);
   uint64_t timerInterval = (uint64_t)(1.0 / (double)framerate * NSEC_PER_SEC);
   uint64_t timeStarted = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
+  BOOL isFrameForced = NO;
   @synchronized (self.listeningClients) {
     if (0 == self.listeningClients.count) {
       [self scheduleNextScreenshotWithInterval:timerInterval timeStarted:timeStarted];
       return;
+    }
+    if (self.forcedFramesCount > 0) {
+      self.forcedFramesCount--;
+      isFrameForced = YES;
     }
   }
 
@@ -133,12 +149,23 @@ static NSUInteger FBNormalizedMjpegFramerate(NSUInteger framerate)
 
   self.consecutiveScreenshotFailures = 0;
 
+  uint64_t timeSinceLastFrame = timeStarted - self.lastFrameSentTimestamp;
+  if (!isFrameForced
+      && timeSinceLastFrame < (uint64_t)(UNCHANGED_FRAME_RESEND_INTERVAL * NSEC_PER_SEC)
+      && [screenshotData isEqualToData:self.lastSentScreenshotData]) {
+    [self scheduleNextScreenshotWithInterval:timerInterval timeStarted:timeStarted];
+    return;
+  }
+
   CGFloat scalingFactor = FBConfiguration.sharedInstance.mjpegScalingFactor / 100.0;
   __weak typeof(self) weakSelf = self;
   [self.imageProcessor submitImageData:screenshotData
                          scalingFactor:scalingFactor
                      completionHandler:^(NSData * _Nonnull scaled) {
-    [weakSelf sendScreenshot:scaled];
+    __strong typeof(weakSelf) strongSelf = weakSelf;
+    [strongSelf sendScreenshot:scaled];
+    strongSelf.lastSentScreenshotData = screenshotData;
+    strongSelf.lastFrameSentTimestamp = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
   }];
 
   [self scheduleNextScreenshotWithInterval:timerInterval timeStarted:timeStarted];
@@ -212,6 +239,7 @@ static NSUInteger FBNormalizedMjpegFramerate(NSUInteger framerate)
   [self.socket writeData:(id)[streamHeader dataUsingEncoding:NSUTF8StringEncoding] toClient:client];
   @synchronized (self.listeningClients) {
     [self.listeningClients addObject:client];
+    self.forcedFramesCount = FRAMES_FORCED_FOR_NEW_CLIENT;
   }
 }
 
