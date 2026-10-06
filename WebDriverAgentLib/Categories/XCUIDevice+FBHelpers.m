@@ -21,6 +21,8 @@
 #import "FBXCDeviceEvent.h"
 #import "FBXCodeCompatibility.h"
 #import "FBXCTestDaemonsProxy.h"
+#import "XCPointerEventPath.h"
+#import "XCSynthesizedEventRecord.h"
 #import "XCUIDevice.h"
 
 static const NSTimeInterval FBHomeButtonCoolOffTime = 1.;
@@ -133,6 +135,44 @@ static bool fb_isLocked;
   });
 #pragma clang diagnostic pop
 }
+
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+// Fire-and-forget: remote control clients send many small gestures and must not
+// block on XCTest reporting each one back
+- (void)fb_dispatchSynthesizedEventWithPath:(XCPointerEventPath *)path
+{
+  XCSynthesizedEventRecord *eventRecord = [[XCSynthesizedEventRecord alloc] initWithName:nil
+                                                                    interfaceOrientation:0];
+  [eventRecord addPointerEventPath:path];
+  [[self eventSynthesizer] synthesizeEvent:eventRecord
+                                completion:(id)^(BOOL result, NSError *invokeError) {}];
+}
+
+- (BOOL)fb_synthTapWithX:(CGFloat)x
+                       y:(CGFloat)y
+{
+  CGFloat tapDuration = 0.05;
+  XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:CGPointMake(x, y)
+                                                                      offset:0];
+  [path liftUpAtOffset:tapDuration];
+  [self fb_dispatchSynthesizedEventWithPath:path];
+  return YES;
+}
+
+- (BOOL)fb_synthSwipe:(CGFloat)x1
+                   y1:(CGFloat)y1
+                   x2:(CGFloat)x2
+                   y2:(CGFloat)y2
+                delay:(CGFloat)delay
+{
+  XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:CGPointMake(x1, y1)
+                                                                      offset:0];
+  [path moveToPoint:CGPointMake(x2, y2) atOffset:delay];
+  [path liftUpAtOffset:delay];
+  [self fb_dispatchSynthesizedEventWithPath:path];
+  return YES;
+}
+#endif
 
 - (BOOL)fb_goToHomescreenWithError:(NSError **)error
 {

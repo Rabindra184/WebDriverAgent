@@ -150,6 +150,37 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
                             duration:(NSTimeInterval)duration
                                error:(NSError **)error;
 
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+/**
+ Synthesizes a single-finger tap at the given screen coordinates.
+ The event is dispatched without waiting for its completion, which keeps
+ remote control (e.g. a device farm web UI) responsive.
+
+ @param x The X coordinate in screen points
+ @param y The Y coordinate in screen points
+ @return YES once the event has been dispatched
+ */
+- (BOOL)fb_synthTapWithX:(CGFloat)x
+                       y:(CGFloat)y;
+
+/**
+ Synthesizes a single-finger swipe between two screen points.
+ The event is dispatched without waiting for its completion.
+
+ @param x1 The starting X coordinate in screen points
+ @param y1 The starting Y coordinate in screen points
+ @param x2 The ending X coordinate in screen points
+ @param y2 The ending Y coordinate in screen points
+ @param delay The duration of the finger movement in float seconds
+ @return YES once the event has been dispatched
+ */
+- (BOOL)fb_synthSwipe:(CGFloat)x1
+                   y1:(CGFloat)y1
+                   x2:(CGFloat)x2
+                   y2:(CGFloat)y2
+                delay:(CGFloat)delay;
+#endif
+
 /**
  Allows to set device appearance
 
