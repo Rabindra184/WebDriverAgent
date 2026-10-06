@@ -27,6 +27,11 @@
 
 static const NSTimeInterval FBHomeButtonCoolOffTime = 1.;
 static const NSTimeInterval FBScreenLockTimeout = 5.;
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+static const NSTimeInterval FBTypingBufferFlushDelay = 0.05;
+static const NSUInteger FBTypingSpeed = 60; // characters per second
+static const NSTimeInterval FBTypingBatchTimeoutMargin = 5.;
+#endif
 
 #if TARGET_OS_TV
 NSDictionary<NSString *, NSNumber *> *fb_availableButtonNames(void) {
@@ -148,20 +153,46 @@ static bool fb_isLocked;
                                 completion:(id)^(BOOL result, NSError *invokeError) {}];
 }
 
-- (BOOL)fb_synthTypeText:(NSString *)text
+- (void)fb_enqueueTypeText:(NSString *)text
 {
   if (0 == text.length) {
-    return NO;
+    return;
   }
 
-  XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTextInput];
-  [path typeText:text atOffset:0.0 typingSpeed:60 shouldRedact:NO];
-  NSString *name = [NSString stringWithFormat:@"Type '%@'", text];
-  XCSynthesizedEventRecord *eventRecord = [[XCSynthesizedEventRecord alloc] initWithName:name];
-  [eventRecord addPointerEventPath:path];
-  [[self eventSynthesizer] synthesizeEvent:eventRecord
-                                completion:(id)^(BOOL result, NSError *invokeError) {}];
-  return YES;
+  static dispatch_queue_t typingQueue;
+  static NSMutableString *typingBuffer;
+  static NSUInteger typingBufferGeneration;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    typingQueue = dispatch_queue_create("com.facebook.WebDriverAgent.typingBuffer", DISPATCH_QUEUE_SERIAL);
+    typingBuffer = [NSMutableString string];
+  });
+
+  dispatch_async(typingQueue, ^{
+    [typingBuffer appendString:text];
+    // Newer text supersedes any flush scheduled before it arrived
+    NSUInteger generation = ++typingBufferGeneration;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(FBTypingBufferFlushDelay * NSEC_PER_SEC)), typingQueue, ^{
+      if (generation != typingBufferGeneration || 0 == typingBuffer.length) {
+        return;
+      }
+      NSString *batch = typingBuffer.copy;
+      [typingBuffer setString:@""];
+
+      XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTextInput];
+      [path typeText:batch atOffset:0.0 typingSpeed:FBTypingSpeed shouldRedact:NO];
+      XCSynthesizedEventRecord *eventRecord = [[XCSynthesizedEventRecord alloc] initWithName:@"Buffered typing"];
+      [eventRecord addPointerEventPath:path];
+      // Wait for the batch to be typed before the next one can start, which keeps the order
+      dispatch_semaphore_t typed = dispatch_semaphore_create(0);
+      [[self eventSynthesizer] synthesizeEvent:eventRecord
+                                    completion:(id)^(BOOL result, NSError *invokeError) {
+        dispatch_semaphore_signal(typed);
+      }];
+      NSTimeInterval timeout = (double)batch.length / FBTypingSpeed + FBTypingBatchTimeoutMargin;
+      dispatch_semaphore_wait(typed, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)));
+    });
+  });
 }
 
 - (BOOL)fb_synthTapWithX:(CGFloat)x

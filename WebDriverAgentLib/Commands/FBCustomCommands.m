@@ -827,7 +827,7 @@
     return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"'text' must be a string"
                                                                        traceback:nil]);
   }
-  [XCUIDevice.sharedDevice fb_synthTypeText:text];
+  [XCUIDevice.sharedDevice fb_enqueueTypeText:text];
   return FBResponseWithOK();
 }
 

@@ -152,13 +152,14 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
 
 #if !TARGET_OS_TV && !TARGET_OS_WATCH
 /**
- Types the given text into whatever currently has keyboard focus.
- The event is dispatched without waiting for its completion.
+ Queues the given text to be typed into whatever currently has keyboard focus.
+ Text arriving in quick succession (e.g. one request per key press) is buffered
+ and typed as one event once no new text came in for a short moment, so no
+ characters are dropped or reordered. Returns without waiting for the typing.
 
- @param text The text to type
- @return YES once the event has been dispatched, NO if the text is empty
+ @param text The text to type. Empty text is ignored.
  */
-- (BOOL)fb_synthTypeText:(NSString *)text;
+- (void)fb_enqueueTypeText:(NSString *)text;
 
 /**
  Synthesizes a single-finger tap at the given screen coordinates.
