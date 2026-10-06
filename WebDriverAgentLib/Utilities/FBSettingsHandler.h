@@ -20,15 +20,18 @@ NS_ASSUME_NONNULL_BEGIN
  * JSON null values are normalized to nil. Nil is applied only for settings that
  * support clearing (e.g. alert action and selectors); other keys are skipped so
  * null does not get coerced to NO/0. Unknown keys are skipped.
+ * The session is nil for the sessionless /appium/settings endpoint. Session-specific
+ * settings (e.g. the default active application) are then ignored.
  *
  * @return nil on success, or an FBCommandStatus describing the validation error.
  */
-+ (nullable FBCommandStatus *)applySettings:(NSDictionary *)settings toSession:(FBSession *)session;
++ (nullable FBCommandStatus *)applySettings:(NSDictionary *)settings toSession:(nullable FBSession *)session;
 
 /**
- * Returns the current values for all known settings.
+ * Returns the current values for all known settings. Settings without a value,
+ * like session-specific ones when the session is nil, are left out.
  */
-+ (NSDictionary *)currentSettingsForSession:(FBSession *)session;
++ (NSDictionary *)currentSettingsForSession:(nullable FBSession *)session;
 
 @end
 
