@@ -16,8 +16,8 @@
 #import "FBSession.h"
 #import "FBSettings.h"
 
-typedef FBCommandStatus * _Nullable (^FBSettingApplyBlock)(FBSession *session, id value);
-typedef id _Nonnull (^FBSettingGetBlock)(FBSession *session);
+typedef FBCommandStatus * _Nullable (^FBSettingApplyBlock)(FBSession * _Nullable session, id value);
+typedef id _Nullable (^FBSettingGetBlock)(FBSession * _Nullable session);
 
 static id FBNormalizedSettingValue(id value)
 {
@@ -344,7 +344,7 @@ static NSSet<NSString *> *FBNilClearableSettingKeys(void)
   return gettersMap;
 }
 
-+ (NSDictionary *)currentSettingsForSession:(FBSession *)session
++ (NSDictionary *)currentSettingsForSession:(nullable FBSession *)session
 {
   NSDictionary<NSString *, FBSettingGetBlock> *gettersMap = [self gettersMap];
   NSMutableDictionary *settings = [NSMutableDictionary dictionaryWithCapacity:gettersMap.count];
@@ -354,7 +354,7 @@ static NSSet<NSString *> *FBNilClearableSettingKeys(void)
   return settings.copy;
 }
 
-+ (nullable FBCommandStatus *)applySettings:(NSDictionary *)settings toSession:(FBSession *)session
++ (nullable FBCommandStatus *)applySettings:(NSDictionary *)settings toSession:(nullable FBSession *)session
 {
   NSDictionary<NSString *, FBSettingApplyBlock> *settersMap = [self settersMap];
   NSSet<NSString *> *nilClearableKeys = FBNilClearableSettingKeys();
@@ -376,7 +376,7 @@ static NSSet<NSString *> *FBNilClearableSettingKeys(void)
 }
 
 + (FBCommandStatus *)configureAutoClickAlertWithSelector:(NSString *)selector
-                                              forSession:(FBSession *)session
+                                              forSession:(nullable FBSession *)session
 {
   if (0 == [selector length]) {
     FBConfiguration.sharedInstance.autoClickAlertSelector = selector;

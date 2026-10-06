@@ -42,6 +42,12 @@
 {
   return
   @[
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+    [[FBRoute POST:@"/wda/tap"].withoutSession respondWithTarget:self action:@selector(handleDeviceTap:)],
+    [[FBRoute POST:@"/wda/swipe"].withoutSession respondWithTarget:self action:@selector(handleDeviceSwipe:)],
+    [[FBRoute POST:@"/wda/type"].withoutSession respondWithTarget:self action:@selector(handleDeviceType:)],
+    [[FBRoute POST:@"/wda/touchAndHold"].withoutSession respondWithTarget:self action:@selector(handleTouchAndHold:)],
+#endif
     [[FBRoute POST:@"/timeouts"] respondWithTarget:self action:@selector(handleTimeouts:)],
     [[FBRoute POST:@"/wda/homescreen"].withoutSession respondWithTarget:self action:@selector(handleHomescreenCommand:)],
     [[FBRoute POST:@"/wda/deactivateApp"] respondWithTarget:self action:@selector(handleDeactivateAppCommand:)],
@@ -812,5 +818,47 @@
   }
   return FBResponseWithOK();
 }
+
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
++ (id<FBResponsePayload>)handleDeviceType:(FBRouteRequest *)request
+{
+  id text = request.arguments[@"text"];
+  if (![text isKindOfClass:NSString.class]) {
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"'text' must be a string"
+                                                                       traceback:nil]);
+  }
+  [XCUIDevice.sharedDevice fb_enqueueTypeText:text];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handleDeviceTap:(FBRouteRequest *)request
+{
+  CGFloat x = [request.arguments[@"x"] doubleValue];
+  CGFloat y = [request.arguments[@"y"] doubleValue];
+  [XCUIDevice.sharedDevice fb_synthTapWithX:x y:y];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handleDeviceSwipe:(FBRouteRequest *)request
+{
+  CGFloat startX = [request.arguments[@"startX"] doubleValue];
+  CGFloat startY = [request.arguments[@"startY"] doubleValue];
+  CGFloat endX = [request.arguments[@"endX"] doubleValue];
+  CGFloat endY = [request.arguments[@"endY"] doubleValue];
+  CGFloat delay = [request.arguments[@"delay"] doubleValue];
+  [XCUIDevice.sharedDevice fb_synthSwipe:startX y1:startY x2:endX y2:endY delay:delay];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handleTouchAndHold:(FBRouteRequest *)request
+{
+  CGFloat x = [request.arguments[@"x"] doubleValue];
+  CGFloat y = [request.arguments[@"y"] doubleValue];
+  // 'delay' is accepted as an alias of 'duration'
+  CGFloat duration = [(request.arguments[@"duration"] ?: request.arguments[@"delay"]) doubleValue];
+  [XCUIDevice.sharedDevice fb_synthTouchAndHold:x y:y delay:duration];
+  return FBResponseWithOK();
+}
+#endif
 
 @end

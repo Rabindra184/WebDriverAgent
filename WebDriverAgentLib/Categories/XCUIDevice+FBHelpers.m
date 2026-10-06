@@ -21,10 +21,17 @@
 #import "FBXCDeviceEvent.h"
 #import "FBXCodeCompatibility.h"
 #import "FBXCTestDaemonsProxy.h"
+#import "XCPointerEventPath.h"
+#import "XCSynthesizedEventRecord.h"
 #import "XCUIDevice.h"
 
 static const NSTimeInterval FBHomeButtonCoolOffTime = 1.;
 static const NSTimeInterval FBScreenLockTimeout = 5.;
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+static const NSTimeInterval FBTypingBufferFlushDelay = 0.05;
+static const NSUInteger FBTypingSpeed = 60; // characters per second
+static const NSTimeInterval FBTypingBatchTimeoutMargin = 5.;
+#endif
 
 #if TARGET_OS_TV
 NSDictionary<NSString *, NSNumber *> *fb_availableButtonNames(void) {
@@ -133,6 +140,97 @@ static bool fb_isLocked;
   });
 #pragma clang diagnostic pop
 }
+
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+// Fire-and-forget: remote control clients send many small gestures and must not
+// block on XCTest reporting each one back
+- (void)fb_dispatchSynthesizedEventWithPath:(XCPointerEventPath *)path
+{
+  XCSynthesizedEventRecord *eventRecord = [[XCSynthesizedEventRecord alloc] initWithName:nil
+                                                                    interfaceOrientation:0];
+  [eventRecord addPointerEventPath:path];
+  [[self eventSynthesizer] synthesizeEvent:eventRecord
+                                completion:(id)^(BOOL result, NSError *invokeError) {}];
+}
+
+- (void)fb_enqueueTypeText:(NSString *)text
+{
+  if (0 == text.length) {
+    return;
+  }
+
+  static dispatch_queue_t typingQueue;
+  static NSMutableString *typingBuffer;
+  static NSUInteger typingBufferGeneration;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    typingQueue = dispatch_queue_create("com.facebook.WebDriverAgent.typingBuffer", DISPATCH_QUEUE_SERIAL);
+    typingBuffer = [NSMutableString string];
+  });
+
+  dispatch_async(typingQueue, ^{
+    [typingBuffer appendString:text];
+    // Newer text supersedes any flush scheduled before it arrived
+    NSUInteger generation = ++typingBufferGeneration;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(FBTypingBufferFlushDelay * NSEC_PER_SEC)), typingQueue, ^{
+      if (generation != typingBufferGeneration || 0 == typingBuffer.length) {
+        return;
+      }
+      NSString *batch = typingBuffer.copy;
+      [typingBuffer setString:@""];
+
+      XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTextInput];
+      [path typeText:batch atOffset:0.0 typingSpeed:FBTypingSpeed shouldRedact:NO];
+      XCSynthesizedEventRecord *eventRecord = [[XCSynthesizedEventRecord alloc] initWithName:@"Buffered typing"];
+      [eventRecord addPointerEventPath:path];
+      // Wait for the batch to be typed before the next one can start, which keeps the order
+      dispatch_semaphore_t typed = dispatch_semaphore_create(0);
+      [[self eventSynthesizer] synthesizeEvent:eventRecord
+                                    completion:(id)^(BOOL result, NSError *invokeError) {
+        dispatch_semaphore_signal(typed);
+      }];
+      NSTimeInterval timeout = (double)batch.length / FBTypingSpeed + FBTypingBatchTimeoutMargin;
+      dispatch_semaphore_wait(typed, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)));
+    });
+  });
+}
+
+- (BOOL)fb_synthTapWithX:(CGFloat)x
+                       y:(CGFloat)y
+{
+  CGFloat tapDuration = 0.05;
+  XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:CGPointMake(x, y)
+                                                                      offset:0];
+  [path liftUpAtOffset:tapDuration];
+  [self fb_dispatchSynthesizedEventWithPath:path];
+  return YES;
+}
+
+- (BOOL)fb_synthSwipe:(CGFloat)x1
+                   y1:(CGFloat)y1
+                   x2:(CGFloat)x2
+                   y2:(CGFloat)y2
+                delay:(CGFloat)delay
+{
+  XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:CGPointMake(x1, y1)
+                                                                      offset:0];
+  [path moveToPoint:CGPointMake(x2, y2) atOffset:delay];
+  [path liftUpAtOffset:delay];
+  [self fb_dispatchSynthesizedEventWithPath:path];
+  return YES;
+}
+
+- (BOOL)fb_synthTouchAndHold:(CGFloat)x
+                           y:(CGFloat)y
+                       delay:(CGFloat)delay
+{
+  XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:CGPointMake(x, y)
+                                                                      offset:0];
+  [path pressDownAtOffset:delay];
+  [self fb_dispatchSynthesizedEventWithPath:path];
+  return YES;
+}
+#endif
 
 - (BOOL)fb_goToHomescreenWithError:(NSError **)error
 {
