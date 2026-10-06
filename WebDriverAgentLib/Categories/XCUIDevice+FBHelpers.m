@@ -148,6 +148,22 @@ static bool fb_isLocked;
                                 completion:(id)^(BOOL result, NSError *invokeError) {}];
 }
 
+- (BOOL)fb_synthTypeText:(NSString *)text
+{
+  if (0 == text.length) {
+    return NO;
+  }
+
+  XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTextInput];
+  [path typeText:text atOffset:0.0 typingSpeed:60 shouldRedact:NO];
+  NSString *name = [NSString stringWithFormat:@"Type '%@'", text];
+  XCSynthesizedEventRecord *eventRecord = [[XCSynthesizedEventRecord alloc] initWithName:name];
+  [eventRecord addPointerEventPath:path];
+  [[self eventSynthesizer] synthesizeEvent:eventRecord
+                                completion:(id)^(BOOL result, NSError *invokeError) {}];
+  return YES;
+}
+
 - (BOOL)fb_synthTapWithX:(CGFloat)x
                        y:(CGFloat)y
 {

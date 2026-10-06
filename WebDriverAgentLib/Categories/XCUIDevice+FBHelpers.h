@@ -152,6 +152,15 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
 
 #if !TARGET_OS_TV && !TARGET_OS_WATCH
 /**
+ Types the given text into whatever currently has keyboard focus.
+ The event is dispatched without waiting for its completion.
+
+ @param text The text to type
+ @return YES once the event has been dispatched, NO if the text is empty
+ */
+- (BOOL)fb_synthTypeText:(NSString *)text;
+
+/**
  Synthesizes a single-finger tap at the given screen coordinates.
  The event is dispatched without waiting for its completion, which keeps
  remote control (e.g. a device farm web UI) responsive.

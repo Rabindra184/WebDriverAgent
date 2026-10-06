@@ -45,6 +45,7 @@
 #if !TARGET_OS_TV && !TARGET_OS_WATCH
     [[FBRoute POST:@"/wda/tap"].withoutSession respondWithTarget:self action:@selector(handleDeviceTap:)],
     [[FBRoute POST:@"/wda/swipe"].withoutSession respondWithTarget:self action:@selector(handleDeviceSwipe:)],
+    [[FBRoute POST:@"/wda/type"].withoutSession respondWithTarget:self action:@selector(handleDeviceType:)],
     [[FBRoute POST:@"/wda/touchAndHold"].withoutSession respondWithTarget:self action:@selector(handleTouchAndHold:)],
 #endif
     [[FBRoute POST:@"/timeouts"] respondWithTarget:self action:@selector(handleTimeouts:)],
@@ -819,6 +820,17 @@
 }
 
 #if !TARGET_OS_TV && !TARGET_OS_WATCH
++ (id<FBResponsePayload>)handleDeviceType:(FBRouteRequest *)request
+{
+  id text = request.arguments[@"text"];
+  if (![text isKindOfClass:NSString.class]) {
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"'text' must be a string"
+                                                                       traceback:nil]);
+  }
+  [XCUIDevice.sharedDevice fb_synthTypeText:text];
+  return FBResponseWithOK();
+}
+
 + (id<FBResponsePayload>)handleDeviceTap:(FBRouteRequest *)request
 {
   CGFloat x = [request.arguments[@"x"] doubleValue];

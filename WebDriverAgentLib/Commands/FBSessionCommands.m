@@ -44,6 +44,7 @@
     [[FBRoute POST:@"/session"].withoutSession respondWithTarget:self action:@selector(handleCreateSession:)],
     [[FBRoute POST:@"/wda/apps/launch"] respondWithTarget:self action:@selector(handleSessionAppLaunch:)],
     [[FBRoute POST:@"/wda/apps/activate"] respondWithTarget:self action:@selector(handleSessionAppActivate:)],
+    [[FBRoute POST:@"/wda/apps/activate"].withoutSession respondWithTarget:self action:@selector(handleAppActivateNoSession:)],
     [[FBRoute POST:@"/wda/apps/terminate"] respondWithTarget:self action:@selector(handleSessionAppTerminate:)],
     [[FBRoute POST:@"/wda/apps/state"] respondWithTarget:self action:@selector(handleSessionAppState:)],
     [[FBRoute GET:@"/wda/apps/list"] respondWithTarget:self action:@selector(handleGetActiveAppsList:)],
@@ -140,6 +141,29 @@
 + (id<FBResponsePayload>)handleSessionAppActivate:(FBRouteRequest *)request
 {
   [request.session activateApplicationWithBundleId:(id)request.arguments[@"bundleId"]];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handleAppActivateNoSession:(FBRouteRequest *)request
+{
+  id bundleId = request.arguments[@"bundleId"];
+  if (![bundleId isKindOfClass:NSString.class] || 0 == [bundleId length]) {
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"bundleId is required"
+                                                                       traceback:nil]);
+  }
+
+  XCUIApplication *app = [[XCUIApplication alloc] initWithBundleIdentifier:bundleId];
+  // Activation waits for the app to idle, which takes far too long for remote control,
+  // so the idle timeout is disabled meanwhile. app.fb_shouldWaitForQuiescence does not help here.
+  @synchronized (FBConfiguration.sharedInstance) {
+    NSTimeInterval previousTimeout = FBConfiguration.sharedInstance.waitForIdleTimeout;
+    @try {
+      FBConfiguration.sharedInstance.waitForIdleTimeout = 0;
+      [app activate];
+    } @finally {
+      FBConfiguration.sharedInstance.waitForIdleTimeout = previousTimeout;
+    }
+  }
   return FBResponseWithOK();
 }
 
