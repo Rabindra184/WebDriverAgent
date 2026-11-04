@@ -1,3 +1,40 @@
+## [16.15.3](https://github.com/appium/WebDriverAgent/compare/v16.15.2...v16.15.3) (2026-10-16)
+
+### Bug Fixes
+
+* bind the MJPEG server to the USE_IP address ([#1299](https://github.com/appium/WebDriverAgent/issues/1299)) ([53573cf](https://github.com/appium/WebDriverAgent/commit/53573cf3a74fe8db87cb5f38b2cdc7f17e856e4f))
+
+## [16.15.2](https://github.com/appium/WebDriverAgent/compare/v16.15.1...v16.15.2) (2026-10-16)
+
+### Bug Fixes
+
+* make /health a standalone route ([#1300](https://github.com/appium/WebDriverAgent/issues/1300)) ([eabb56e](https://github.com/appium/WebDriverAgent/commit/eabb56efdc6bca22ae1e8e4e11368de95a31e1c7))
+
+## [16.15.1](https://github.com/appium/WebDriverAgent/compare/v16.15.0...v16.15.1) (2026-10-16)
+
+### Bug Fixes
+
+* clean up AUT launches after session deletion ([#1297](https://github.com/appium/WebDriverAgent/issues/1297)) ([5139caf](https://github.com/appium/WebDriverAgent/commit/5139caf298b08cd22e4ed8ffc94ba74565783c52))
+
+## [16.15.0](https://github.com/appium/WebDriverAgent/compare/v16.14.2...v16.15.0) (2026-10-12)
+
+### Features
+
+* add asAppUnderTest flag to /wda/apps/launch ([#1289](https://github.com/appium/WebDriverAgent/issues/1289)) ([f5c0688](https://github.com/appium/WebDriverAgent/commit/f5c068873ff6dcd1ce444d26246c102cc379d5bf))
+
+## [16.14.2](https://github.com/appium/WebDriverAgent/compare/v16.14.1...v16.14.2) (2026-10-08)
+
+### Bug Fixes
+
+* align Duo W3C actions and scrolling ([#1288](https://github.com/appium/WebDriverAgent/issues/1288)) ([104a31c](https://github.com/appium/WebDriverAgent/commit/104a31ce9aca53222bb312103f485b59f52f9894)), closes [#1294](https://github.com/appium/WebDriverAgent/issues/1294) [#1292](https://github.com/appium/WebDriverAgent/issues/1292)
+
+## [16.14.1](https://github.com/appium/WebDriverAgent/compare/v16.14.0...v16.14.1) (2026-10-07)
+
+### Bug Fixes
+
+* report geometry for the selected display ([#1291](https://github.com/appium/WebDriverAgent/issues/1291)) ([43fa6da](https://github.com/appium/WebDriverAgent/commit/43fa6da647fb8adca21fdbd106d8f73d782d6717))
+* skip accessibility idle checks for WebKit services ([#1293](https://github.com/appium/WebDriverAgent/issues/1293)) ([9d06611](https://github.com/appium/WebDriverAgent/commit/9d06611d1f5d342fd16458f707dca3f3e3ec00fc))
+
 ## [16.14.0](https://github.com/appium/WebDriverAgent/compare/v16.13.6...v16.14.0) (2026-10-04)
 
 ### Features
